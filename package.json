@@ -19,7 +19,6 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "@types/html2canvas": "^1.4.3",
     "typescript": "~5.8.2",
     "vite": "^7.2.4"
   }
