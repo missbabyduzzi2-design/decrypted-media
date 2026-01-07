@@ -1,0 +1,26 @@
+
+{
+  "name": "decrypted-media-analyst-groq",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "html2canvas": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@types/html2canvas": "^1.4.3",
+    "typescript": "~5.8.2",
+    "vite": "^7.2.4"
+  }
+}
