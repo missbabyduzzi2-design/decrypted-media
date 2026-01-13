@@ -23,6 +23,14 @@ CRITICAL PROTOCOLS:
 3. SCHEMA ADHERENCE: Strictly follow provided JSON keys.
 `;
 
+// Helper for local YYYY-MM-DD
+const getLocalDateString = () => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - (offset * 60 * 1000));
+    return local.toISOString().split('T')[0];
+};
+
 const SYMBOLIC_INSTRUCTION = `
 Identify esoteric, ritual, and mythic meanings.
 Symbols: Phoenix (Rebirth), Lion (Authority), Serpent (Knowledge), Black cube (Saturn), Pyramid (Hierarchy), Fire (Sacrifice).
@@ -211,7 +219,7 @@ export const processManualInput = async (input: string): Promise<Article> => {
         title: result.title || "Manual Transmission",
         description: result.description || "Unidentified Data Stream",
         content: isUrl ? result.content : input,
-        date: result.date || new Date().toISOString().split('T')[0],
+        date: result.date || getLocalDateString(),
         category: result.category || "Classified",
         location: result.location || "Unknown",
         url: isUrl ? input : undefined
