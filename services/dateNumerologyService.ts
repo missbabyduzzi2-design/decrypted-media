@@ -60,9 +60,10 @@ export const calculateDateNumerology = (text: string): DateNumerologyResult | nu
     return null;
   }
   
-  const day = date.getDate();
-  const month = date.getMonth() + 1; // 0-indexed
-  const year = date.getFullYear();
+  // Use UTC methods because string dates YYYY-MM-DD are parsed as UTC
+  const day = date.getUTCDate();
+  const month = date.getUTCMonth() + 1; // 0-indexed
+  const year = date.getUTCFullYear();
 
   const fullSum = sumDigitsFromString(String(month)) + sumDigitsFromString(String(day)) + sumDigitsFromString(String(year));
   const monthDaySum = sumDigitsFromString(String(month)) + sumDigitsFromString(String(day));
@@ -103,24 +104,19 @@ export const calculateDateSpan = (date1Str: string, date2Str: string): DateSpanA
     const diffTime = Math.abs(d2.getTime() - d1.getTime());
     const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // Calculate Y/M/D components (Approximate)
-    let years = d2.getFullYear() - d1.getFullYear();
-    let months = d2.getMonth() - d1.getMonth();
-    let days = d2.getDate() - d1.getDate();
+    // Calculate Y/M/D components using UTC to avoid shift
+    let years = d2.getUTCFullYear() - d1.getUTCFullYear();
+    let months = d2.getUTCMonth() - d1.getUTCMonth();
+    let days = d2.getUTCDate() - d1.getUTCDate();
 
     if (days < 0) {
         months--;
-        const prevMonth = new Date(d2.getFullYear(), d2.getMonth(), 0);
-        days += prevMonth.getDate();
+        const prevMonth = new Date(Date.UTC(d2.getUTCFullYear(), d2.getUTCMonth(), 0));
+        days += prevMonth.getUTCDate();
     }
     if (months < 0) {
         years--;
         months += 12;
-    }
-    
-    if (d1 > d2) {
-         // Normalize to ensure positive calculations if needed, or handle negative
-         // For day counts we usually want absolute magnitude
     }
 
     const digitSum = getDigitSum(totalDays);
@@ -180,11 +176,11 @@ export const generateDayCountTable = (entities: EntityChronology[], articleDate:
             }
 
             // Compare to Ritual Dates
-            // We check the year of the event, and potentially the year of the article to catch syncs
             const yearsToCheck = new Set<number>();
-            const eventYear = new Date(event.dateValue).getFullYear();
+            const eventDateObj = new Date(event.dateValue);
+            const eventYear = eventDateObj.getUTCFullYear();
             if (!isNaN(eventYear)) yearsToCheck.add(eventYear);
-            if (hasArticleDate) yearsToCheck.add(articleD.getFullYear());
+            if (hasArticleDate) yearsToCheck.add(articleD.getUTCFullYear());
 
             yearsToCheck.forEach(year => {
                 RITUAL_DATES.forEach(ritual => {
@@ -215,12 +211,6 @@ const addComparisonRows = (rows: DayCountRow[], d1Str: string, d2Str: string, la
     const totalDaysExclusive = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     const totalDaysInclusive = totalDaysExclusive + 1;
 
-    // Limit max days to prevent noise (e.g. < 100 years ~ 36500 days) unless it's a direct hit
-    if (totalDaysExclusive > 40000) {
-        // Optimization: only process very long spans if they hit a control number
-        // But for now, process all for completeness as requested
-    }
-
     // Process Exclusive
     processSingleCount(rows, label, d1Str, d2Str, totalDaysExclusive, false);
     // Process Inclusive
@@ -249,8 +239,6 @@ const processSingleCount = (rows: DayCountRow[], label: string, start: string, e
         isMatch = true;
     }
 
-    // Only add non-matches if requested or keep all? 
-    // Requirement says "write every total — even when no control numbers hit."
     rows.push({
         comparison: label,
         startDate: start,
