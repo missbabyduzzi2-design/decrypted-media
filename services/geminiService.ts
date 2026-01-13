@@ -219,7 +219,7 @@ export const processManualInput = async (input: string): Promise<Article> => {
         title: result.title || "Manual Transmission",
         description: result.description || "Unidentified Data Stream",
         content: isUrl ? result.content : input,
-        date: result.date || new Date().toISOString().split('T')[0],
+        date: result.date || getLocalDateString(),
         category: result.category || "Classified",
         location: result.location || "Unknown",
         url: isUrl ? input : undefined
