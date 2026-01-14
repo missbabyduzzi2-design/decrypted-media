@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 // --- Helper Functions ---
 
 const getMoonPhase = (date: Date) => {
-    let year = date.getFullYear();
-    let month = date.getMonth() + 1;
-    let day = date.getDate();
+    // Correctly handle the date object for moon calculations (UTC consistent)
+    let year = date.getUTCFullYear();
+    let month = date.getUTCMonth() + 1;
+    let day = date.getUTCDate();
 
     if (month < 3) {
         year--;
@@ -52,14 +53,14 @@ const getMoonIcon = (phase: string) => {
 };
 
 const getDayOfYear = (date: Date) => {
-    const start = new Date(date.getFullYear(), 0, 0);
+    const start = new Date(Date.UTC(date.getUTCFullYear(), 0, 0));
     const diff = date.getTime() - start.getTime();
     const oneDay = 1000 * 60 * 60 * 24;
     return Math.floor(diff / oneDay);
 };
 
 const getWeekOfYear = (date: Date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -67,7 +68,11 @@ const getWeekOfYear = (date: Date) => {
 };
 
 const getNumerologySum = (date: Date) => {
-    const str = `${date.getMonth() + 1}${date.getDate()}${date.getFullYear()}`;
+    // Extract numerical components from UTC to match displayed string
+    const m = date.getUTCMonth() + 1;
+    const d = date.getUTCDate();
+    const y = date.getUTCFullYear();
+    const str = `${m}${d}${y}`;
     let sum = str.split('').reduce((a, b) => a + parseInt(b), 0);
     while (sum > 9 && sum !== 11 && sum !== 22 && sum !== 33) {
         sum = sum.toString().split('').reduce((a, b) => a + parseInt(b), 0);
@@ -75,12 +80,21 @@ const getNumerologySum = (date: Date) => {
     return sum;
 };
 
+// Helper for local YYYY-MM-DD
+const getLocalDateString = (d: Date = new Date()) => {
+    const offset = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - (offset * 60 * 1000));
+    return local.toISOString().split('T')[0];
+};
+
 // --- Component ---
 
 export const DateDiffCalculator: React.FC = () => {
-    // Default to today and 1 year ago for demo purposes
-    const today = new Date().toISOString().split('T')[0];
-    const lastYear = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0];
+    // Fix: Use local time instead of UTC to avoid "day ahead" errors in evening hours
+    const today = getLocalDateString();
+    const lastYearDate = new Date();
+    lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
+    const lastYear = getLocalDateString(lastYearDate);
 
     const [startDate, setStartDate] = useState(lastYear);
     const [endDate, setEndDate] = useState(today);
@@ -91,84 +105,57 @@ export const DateDiffCalculator: React.FC = () => {
     const startDateRef = useRef<HTMLInputElement>(null);
     const endDateRef = useRef<HTMLInputElement>(null);
 
-    // Swap function
     const handleSwap = () => {
         setStartDate(endDate);
         setEndDate(startDate);
     };
 
-    // Calculate diffs
     const d1 = new Date(startDate);
     const d2 = new Date(endDate);
 
-    // Validation
     const isValid = !isNaN(d1.getTime()) && !isNaN(d2.getTime());
     
-    // Ensure chronological order for math, but handle negative display if needed? 
-    // Usually date calculators just show magnitude. We will calculate magnitude.
     const start = d1 < d2 ? d1 : d2;
     const end = d1 < d2 ? d2 : d1;
     const isReversed = d1 > d2;
-
-    // Adjust for inclusions
-    // Standard diff is End - Start. 
-    // If include start (+1 day). If include end (+0 usually, but if both included it's +1 total span).
-    // Let's standardise: 
-    // Basic diff in days = (end - start) days.
-    // If include start AND end, add 1 day.
-    // If exclude both, minus 1 day? (Usually not how it works).
-    // Let's treat standard calc as Exclude End Date (standard subtraction).
-    // If Include Start (default) & Exclude End: Diff is X days.
-    // If Include Start & Include End: Diff is X + 1 days.
-    // If Exclude Start & Exclude End: Diff is X - 1 days.
-    // Logic: Standard JS subtraction excludes the end date conceptually (it measures distance).
-    // Distance = End - Start. This represents "Include Start, Exclude End".
     
     let totalTimeDiff = Math.abs(d2.getTime() - d1.getTime());
     let totalDays = Math.floor(totalTimeDiff / (1000 * 3600 * 24));
     
-    // Adjustment logic
     let adjustment = 0;
     if (includeStartDate && includeEndDate) adjustment = 1;
     if (!includeStartDate && !includeEndDate) adjustment = -1;
-    // if one is checked and other is not, that's standard displacement (0 adjustment)
     
     totalDays = Math.max(0, totalDays + adjustment);
 
-    // Detailed Breakdown
-    // To get years/months/days properly we need to use Date objects
-    // We create a clone of start and add adjustment
     const calcStart = new Date(start);
     const calcEnd = new Date(end);
     
-    // Add adjustment to the end date for calculation purposes if we are extending the window
-    if (includeStartDate && includeEndDate) calcEnd.setDate(calcEnd.getDate() + 1);
-    if (!includeStartDate && !includeEndDate) calcEnd.setDate(calcEnd.getDate() - 1);
+    if (includeStartDate && includeEndDate) calcEnd.setUTCDate(calcEnd.getUTCDate() + 1);
+    if (!includeStartDate && !includeEndDate) calcEnd.setUTCDate(calcEnd.getUTCDate() - 1);
 
-    let years = calcEnd.getFullYear() - calcStart.getFullYear();
-    let months = calcEnd.getMonth() - calcStart.getMonth();
-    let days = calcEnd.getDate() - calcStart.getDate();
+    let years = calcEnd.getUTCFullYear() - calcStart.getUTCFullYear();
+    let months = calcEnd.getUTCMonth() - calcStart.getUTCMonth();
+    let days = calcEnd.getUTCDate() - calcStart.getUTCDate();
 
     if (days < 0) {
         months--;
-        const prevMonth = new Date(calcEnd.getFullYear(), calcEnd.getMonth(), 0);
-        days += prevMonth.getDate();
+        const prevMonth = new Date(Date.UTC(calcEnd.getUTCFullYear(), calcEnd.getUTCMonth(), 0));
+        days += prevMonth.getUTCDate();
     }
     if (months < 0) {
         years--;
         months += 12;
     }
 
-    // Totals for display
     const totalWeeks = Math.floor(totalDays / 7);
-    const remainingDays = totalDays % 7;
     const totalHours = totalDays * 24;
     const totalMinutes = totalHours * 60;
     const totalSeconds = totalMinutes * 60;
 
-    // Date Stats
     const getStats = (date: Date) => ({
-        dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        // Use UTC display for components because string-based dates parse to UTC midnight
+        dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
         moonPhase: getMoonPhase(date),
         weekOfYear: getWeekOfYear(date),
         dayOfYear: getDayOfYear(date),
@@ -178,8 +165,6 @@ export const DateDiffCalculator: React.FC = () => {
     const startStats = isValid ? getStats(d1) : null;
     const endStats = isValid ? getStats(d2) : null;
 
-    // Timeline segments (simplified visualization)
-    // We'll create 5 points
     const timelinePoints = [];
     if (isValid) {
         const step = (d2.getTime() - d1.getTime()) / 4;
@@ -203,14 +188,12 @@ export const DateDiffCalculator: React.FC = () => {
 
     return (
         <div className="bg-[#0c0c0e] border border-white/5 rounded-xl p-6 md:p-8 relative overflow-hidden">
-            {/* Background Decor */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
             
-            {/* Header Summary */}
             <div className="text-center mb-10 relative z-10">
                 <div className="text-zinc-500 text-xs font-mono uppercase tracking-widest mb-2">Duration Analysis</div>
                 <h3 className="text-xl md:text-2xl text-zinc-100 font-light">
-                    From <span className="text-emerald-400 font-bold">{d1.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span> to <span className="text-emerald-400 font-bold">{d2.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span> is
+                    From <span className="text-emerald-400 font-bold">{d1.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span> to <span className="text-emerald-400 font-bold">{d2.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span> is
                 </h3>
                 <div className="mt-4 text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-zinc-400 font-heading">
                     {years > 0 && <span>{years}<span className="text-base text-zinc-500 font-normal ml-1 mr-4">years</span></span>}
@@ -220,10 +203,7 @@ export const DateDiffCalculator: React.FC = () => {
                 {isReversed && <div className="text-red-400 text-xs font-mono mt-2">(Dates are reversed)</div>}
             </div>
 
-            {/* Controls Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10 relative z-10">
-                
-                {/* Start Date Column */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
                     <div 
                         className="bg-zinc-900/50 border border-white/10 rounded-lg p-1 group focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all cursor-pointer relative"
@@ -266,9 +246,7 @@ export const DateDiffCalculator: React.FC = () => {
                     )}
                 </div>
 
-                {/* Center Stats Column */}
                 <div className="lg:col-span-4 flex flex-col justify-center items-center">
-                    {/* Toggle Switches Visualization (Static for now as they are derived) */}
                     <div className="w-full bg-zinc-900/30 border border-white/5 rounded-xl p-4 space-y-3">
                          <div className="flex justify-between items-center text-sm">
                              <span className="text-zinc-500">Years</span>
@@ -309,7 +287,6 @@ export const DateDiffCalculator: React.FC = () => {
                     </button>
                 </div>
 
-                {/* End Date Column */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
                     <div 
                         className="bg-zinc-900/50 border border-white/10 rounded-lg p-1 group focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all cursor-pointer relative"
@@ -353,15 +330,10 @@ export const DateDiffCalculator: React.FC = () => {
                 </div>
             </div>
 
-            {/* Timeline Visual */}
             <div className="relative pt-6 mt-6 border-t border-white/5">
                  <div className="text-center text-[10px] text-zinc-600 uppercase tracking-[0.2em] mb-4">Segments of Time</div>
-                 
-                 {/* Line */}
                  <div className="relative h-1 bg-zinc-800 rounded-full w-full mb-8">
                      <div className="absolute top-0 left-0 h-full bg-emerald-500/50 rounded-full" style={{ width: '100%' }}></div>
-                     
-                     {/* Dots */}
                      {timelinePoints.map((point, i) => (
                          <div 
                             key={i} 
@@ -369,13 +341,12 @@ export const DateDiffCalculator: React.FC = () => {
                             style={{ left: `${i * 25}%` }}
                          >
                             <div className="absolute top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono text-zinc-500 whitespace-nowrap">
-                                {point.toLocaleDateString(undefined, {month:'numeric', day:'numeric', year: '2-digit'})}
+                                {point.toLocaleDateString(undefined, {month:'numeric', day:'numeric', year: '2-digit', timeZone: 'UTC'})}
                             </div>
                          </div>
                      ))}
                  </div>
             </div>
-
         </div>
     );
 };
