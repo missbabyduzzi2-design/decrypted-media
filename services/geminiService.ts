@@ -6,8 +6,7 @@ import { type IntelligenceBriefing, type CosmicData, type Synthesis, type Enrich
  * Replaces Gemini with Groq for high-speed, free-tier Llama 3.3/3.1 inference.
  */
 
-const API_KEY = process.env.GROQ_API_KEY || process.env.API_KEY || '';
-const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_ENDPOINT = '/api/groq';
 
 // Llama 3.3 70B for high intelligence, 3.1 8B for speed
 const INTELLIGENT_MODEL = 'llama-3.3-70b-versatile';
@@ -54,7 +53,6 @@ async function callGroq<T>(prompt: string, schema: string, model: string = INTEL
                 const response = await fetch(GROQ_ENDPOINT, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${API_KEY}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -189,7 +187,6 @@ export const getChatResponse = async (history: any[], newMessage: string, articl
     const response = await fetch(GROQ_ENDPOINT, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -210,15 +207,36 @@ export const getChatResponse = async (history: any[], newMessage: string, articl
 
 export const processManualInput = async (input: string): Promise<Article> => {
     const isUrl = /^(http|https):\/\/[^ "]+$/.test(input.trim());
-    const prompt = isUrl ? `Analyze this URL and return JSON article summary: ${input}` : `Summarize this text into JSON: ${input.substring(0, 5000)}`;
-    const schema = '{ "title": "string", "description": "string", "content": "string", "date": "YYYY-MM-DD", "category": "string", "location": "string" }';
+    let extractedText = '';
+    let extractedTitle = '';
+
+    if (isUrl) {
+        try {
+            const extractRes = await fetch('/api/extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: input })
+            });
+            if (extractRes.ok) {
+                const data = await extractRes.json();
+                extractedText = data.text || '';
+                extractedTitle = data.title || '';
+            }
+        } catch (e) {
+            console.warn("URL extraction failed, falling back to Groq summary", e);
+        }
+    }
+
+    const sourceText = isUrl ? (extractedText || input) : input;
+    const prompt = `Summarize this text into JSON: ${sourceText.substring(0, 5000)}`;
+    const schema = '{ "title": "string", "description": "string", "date": "YYYY-MM-DD", "category": "string", "location": "string" }';
     const result = await callGroq<any>(prompt, schema, FAST_MODEL);
 
     return {
         id: `manual-${Date.now()}`,
-        title: result.title || "Manual Transmission",
+        title: extractedTitle || result.title || "Manual Transmission",
         description: result.description || "Unidentified Data Stream",
-        content: isUrl ? result.content : input,
+        content: isUrl ? (extractedText || sourceText) : input,
         date: result.date || getLocalDateString(),
         category: result.category || "Classified",
         location: result.location || "Unknown",

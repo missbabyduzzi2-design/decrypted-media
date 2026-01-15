@@ -15,6 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/14_tsrwFwJOAwp97GuPjnEM
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set `GROQ_API_KEY` in `.env` or your Vercel project environment
 3. Run the app:
    `npm run dev`
+   
+   To test the API routes locally, run `vercel dev` instead.
